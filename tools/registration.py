@@ -23,6 +23,15 @@ class AuthHandler:
             region_name=region
         )
         self.users_table = dynamodb.Table("Students")
+        self.cognito = boto3.client(
+            "cognito-idp",
+            region_name=region,
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+        )
+        self.USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
+        self.CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
+
 
         # Secret key for JWT (use env or AWS Secrets Manager in prod)
         self.JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key")
