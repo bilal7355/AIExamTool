@@ -1,14 +1,17 @@
 
 import boto3
+import os
+from dotenv import load_dotenv
+load_dotenv()
 # new
 class DynamoDBConnection:
-    def __init__(self, region_name='ap-south-1', access_id=None, secret_key=None):
+    def __init__(self, region_name='ap-south-1'):
         # Initialize the DynamoDB resource with credentials
         self.dynamodb = boto3.resource(
             'dynamodb',
             region_name=region_name,
-            aws_access_key_id=access_id,
-            aws_secret_access_key=secret_key
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
         )
 
     def get_table(self, table_name):
@@ -23,9 +26,7 @@ class DynamoDBConnection:
 
 
 # Initialize the DynamoDB connection with AWS credentials
-access_id = "AKIAXNGUVEBEEXXJ22GW"
-secret_key = "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"
-ob = DynamoDBConnection(region_name='ap-south-1', access_id=access_id, secret_key=secret_key)
+ob = DynamoDBConnection(region_name='ap-south-1')
 
 # Attempt to connect to the table
 table = ob.get_table("Modules")

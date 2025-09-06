@@ -2,36 +2,38 @@ import boto3
 import json
 from boto3.dynamodb.conditions import Key
 from DynamoDB.Utils import DynamoDBConnection
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
 class FetchRecord:
-    def __init__(self, credentials_file="DynamoDB/Credentials.json", region_name="ap-south-1"):
+    def __init__(self, region_name=None):
         """
         Initialize the FetchRecord class with AWS credentials and region.
-
-        :param credentials_file: Path to the JSON file with AWS credentials.
-        :param region_name: AWS region for DynamoDB.
+        
+        :param region_name: AWS region for DynamoDB (optional, defaults to env variable).
         """
-        self.credentials_file = credentials_file
-        self.region_name = region_name
-        self.access_id, self.secret_key = self.get_aws_credentials()
+        self.access_id = os.getenv("AWS_ACCESS_KEY_ID")
+        self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        self.region_name = region_name or os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
+
+        # Initialize connection
         self.connection = DynamoDBConnection(
             access_id=self.access_id,
             secret_key=self.secret_key,
             region_name=self.region_name
         )
+    # def get_aws_credentials(self):
+    #     """
+    #     Read AWS credentials from the JSON file.
 
-    def get_aws_credentials(self):
-        """
-        Read AWS credentials from the JSON file.
-
-        :return: Tuple of (access_id, secret_key).
-        """
-        try:
-            with open(self.credentials_file, "r") as file:
-                credentials = json.load(file)
-            return credentials["access_id"], credentials["secret_key"]
-        except Exception as e:
-            raise Exception(f"Error reading AWS credentials: {e}")
+    #     :return: Tuple of (access_id, secret_key).
+    #     """
+    #     try:
+    #         with open(self.credentials_file, "r") as file:
+    #             credentials = json.load(file)
+    #         return credentials["access_id"], credentials["secret_key"]
+    #     except Exception as e:
+    #         raise Exception(f"Error reading AWS credentials: {e}")
 
     def get_data_from_table(self, table_name, key_name=None, key_value=None):
         """
