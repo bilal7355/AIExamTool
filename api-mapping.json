@@ -1,0 +1,209 @@
+{
+  "user": {
+    "login": [
+      {
+        "request_method": "POST",
+        "path": "authenticate",
+        "class": "UserHandler",
+        "method": "login",
+        "package": "handlers.user_handler"
+      }
+    ],
+    "autologin": [
+      {
+        "request_method": "GET",
+        "path": "autologin",
+        "class": "UserHandler",
+        "method": "autologin",
+        "package": "handlers.user_handler"
+      }
+    ],
+    "signup": [
+      {
+        "request_method": "POST",
+        "path": "register",
+        "class": "UserHandler",
+        "method": "signup",
+        "package": "handlers.user_handler"
+      }
+    ],
+    "workshopsignup": [
+      {
+        "request_method": "POST",
+        "path": "register",
+        "class": "UserHandler",
+        "method": "workshop_signup",
+        "package": "handlers.user_handler"
+      }
+    ],
+    "passwordreset": [
+      {
+        "request_method": "POST",
+        "path": "generate",
+        "class": "ForgetPasswordHandler",
+        "method": "generate_otp",
+        "package": "handlers.forget"
+      },
+      {
+        "request_method": "POST",
+        "path": "verify",
+        "class": "ForgetPasswordHandler",
+        "method": "verify_otp",
+        "package": "handlers.forget"
+      },
+      {
+        "request_method": "POST",
+        "path": "reset",
+        "class": "ForgetPasswordHandler",
+        "method": "reset_password",
+        "package": "handlers.forget"
+      }
+    ],
+    "getdetail": [
+      {
+        "request_method": "GET",
+        "path": "getdetail",
+        "class": "UserHandler",
+        "method": "get_details",
+        "package": "handlers.user"
+      }
+    ],
+    "fetchvideo": [
+      {
+        "request_method": "POST",
+        "path": "getvideo",
+        "class": "runvideomanager",
+        "method": "runvideo",
+        "package": "streaming.videomanager"
+      }
+    ],
+    "fetchhierarchy": [
+      {
+        "request_method": "POST",
+        "path": "hierarchy",
+        "class": "VideoFetcher",
+        "method": "fetch_hierarchy",
+        "package": "streaming.video_hierarchy_fetcher"
+      }
+    ],
+    "chatbot" : [
+      {
+        "request_method": "POST",
+        "path": "query",
+        "class": "ChatbotHandler",
+        "method": "handle_query",
+        "package": "handlers.chatbot_handler"
+      }
+    ],
+    "paymentprocess": [
+      {
+        "request_method": "POST",
+        "path": "payment",
+        "class": "PaymentHandler",
+        "method": "process_payment",
+        "package": "DynamoDB.payment_handler"
+      }
+    ],
+    "pwd_reset": [
+      {
+        "request_method": "POST",
+        "path": "generate",
+        "class": "PasswordResetManager",
+        "method": "generate_otp",
+        "package": "handlers.password_reset"
+      },
+      {
+        "request_method": "POST",
+        "path": "send",
+        "class": "PasswordResetManager",
+        "method": "send_otp",
+        "package": "handlers.password_reset"
+      }
+    ],
+    "refresh_token": [
+      {
+        "request_method": "POST",
+        "path": "refresh",
+        "class": "UserHandler",
+        "method": "refresh_token",
+        "package": "handlers.user_handler"
+      }
+    ],
+    "refresh": [
+      {
+        "request_method": "GET",
+        "path": "authenticate",
+        "class": "UserHandler",
+        "method": "logout",
+        "package": "handlers.user_handler"
+      }
+    ]
+  },
+  "assignment":{
+    "retrieve": [
+      {
+        "request_method": "GET",
+        "path": "assnretrieve",
+        "class": "RetrieveAll",
+        "method": "retriever",
+        "package": "assignments.retrieve_assignment"
+      }
+    ],
+
+    "generate": [
+      {
+        "request_method": "POST",
+        "path": "assngen",
+        "class": "Gen",
+        "method": "generator",
+        "package": "assignments.assignment_generator"
+      }
+    ],
+    "evaluate":[
+      {
+        "request_method": "POST",
+        "path": "assneval",
+        "class": "Evaluator",
+        "method": "evl",
+        "package": "assignments.assignment_evaluation"
+      }
+    ],
+    "send_mail":[
+      {
+        "request_method": "POST",
+        "path": "sendassn",
+        "class": "Email",
+        "method": "mailer",
+        "package": "assignments.send_email"
+      }
+    ],
+    "view":[
+      {
+        "request_method": "GET",
+        "path": "viewassn",
+        "class": "ViewAssignments",
+        "method": "Viewer",
+        "package": "assignments.view_assignment"
+      }
+    ],
+    "update":[
+      {
+        "request_method": "POST",
+        "path": "uploadassn",
+        "class": "UploadAssn",
+        "method": "upload",
+        "package": "assignments.update_assignment"
+      }
+    ],
+    "getbatchmails":[
+      {
+        "request_method": "POST",
+        "path": "getbatch_mails",
+        "class": "GetBatchMail",
+        "method": "getBatches",
+        "package": "assignments.get_batches"
+      }
+    ]
+
+  }
+}
