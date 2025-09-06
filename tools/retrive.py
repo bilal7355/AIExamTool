@@ -7,18 +7,17 @@ from DynamoDB.Read import FetchRecord
 import jwt 
 import os
 from DynamoDB.Read import FetchRecord
-
+from dotenv import load_dotenv
+load_dotenv()
 SECRET_KEY = os.environ.get("JWT_SECRET", "your-secret-key")
 
 class RetrieveAssnAdmin:
     def __init__(self):
-        with open('Credentials.json') as f:
-            aws_creds = json.load(f)
 
         self.s3 = boto3.client(
             "s3",
-            aws_access_key_id=aws_creds["access_id"],
-            aws_secret_access_key=aws_creds["secret_key"],
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             region_name="us-east-1"
         )
         self.BUCKET = "generated-assignments"
@@ -148,13 +147,12 @@ class RetrieveAssnAdmin:
 
 class RetrieveAssnStudent:
     def __init__(self):
-        with open('assignments/Credentials.json') as f:
-            aws_creds = json.load(f)
+
 
         self.s3 = boto3.client(
             "s3",
-            aws_access_key_id=aws_creds["access_id"],
-            aws_secret_access_key=aws_creds["secret_key"],
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             region_name="us-east-1"
         )
         self.BUCKET = "generated-assignments"

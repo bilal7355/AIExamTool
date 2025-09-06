@@ -1,37 +1,84 @@
 import json
 import boto3
-from botocore.exceptions import ClientError
+import hashlib
+import hmac
 import os
-from datetime import datetime
+import uuid
+import secrets
+import jwt
+from datetime import datetime, timedelta
+from botocore.exceptions import ClientError
+from jwt import ExpiredSignatureError, InvalidTokenError
+from dotenv import load_dotenv
+load_dotenv()
 
-class Registration:
-    def __init__(self):
-        # Load AWS credentials from file
-        with open('Credentials.json') as f:
-            aws_creds = json.load(f)
+class AuthHandler:
+    def __init__(self, region="ap-south-1"):
         
-        # Cognito client
-        self.cognito = boto3.client(
-            "cognito-idp",
-            aws_access_key_id=aws_creds["access_id"],
-            aws_secret_access_key=aws_creds["secret_key"],
-            region_name="us-east-1"
-        )
-
-        # Replace with your Cognito details
-        self.USER_POOL_ID = "your_user_pool_id"
-        self.CLIENT_ID = "your_client_id"
-
-        # DynamoDB resource
-        self.dynamodb = boto3.resource(
+        # DynamoDB
+        dynamodb = boto3.resource(
             "dynamodb",
-            aws_access_key_id=aws_creds["access_id"],
-            aws_secret_access_key=aws_creds["secret_key"],
-            region_name="us-east-1"
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=region
         )
-        self.users_table = self.dynamodb.Table("Users")
+        self.users_table = dynamodb.Table("Students")
 
-    def signup_handler(self, event, context):
+        # Secret key for JWT (use env or AWS Secrets Manager in prod)
+        self.JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key")
+        self.JWT_ALGO = "HS256"
+
+    # ---------- Helper Functions ----------
+    def decode_token(self, token):
+        try:
+            decoded = jwt.decode(
+                token,
+                self.JWT_SECRET,
+                algorithms=[self.JWT_ALGO]
+            )
+            return {
+                "valid": True,
+                "data": decoded
+            }
+        except ExpiredSignatureError:
+            return {
+                "valid": False,
+                "error": "Token has expired"
+            }
+        except InvalidTokenError:
+            return {
+                "valid": False,
+                "error": "Invalid token"
+            }
+    def hash_password(self, password: str, salt: str) -> str:
+        """Hash password with salt using HMAC SHA256."""
+        return hmac.new(salt.encode(), password.encode(), hashlib.sha256).hexdigest()
+
+    def verify_jwt(self, event):
+        """Verify JWT token from request headers."""
+        headers = event.get("headers", {})
+        auth_header = headers.get("Authorization")
+
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return {"error": "Missing or invalid Authorization header"}
+
+        token = auth_header.split(" ")[1]
+
+        try:
+            decoded = jwt.decode(token, self.JWT_SECRET, algorithms=[self.JWT_ALGO])
+            return {"success": True, "claims": decoded}
+        except ExpiredSignatureError:
+            return {"error": "Token has expired"}
+        except InvalidTokenError:
+            return {"error": "Invalid token"}
+
+    def check_access(self, claims, allowed_roles):
+        """Check if user role is allowed."""
+        user_role = claims.get("role")
+        return user_role in allowed_roles
+
+    # ---------- Signup ----------
+    def signup_handler(self, event, context={}):
         try:
             body = json.loads(event["body"])
             email = body.get("email")
@@ -40,32 +87,44 @@ class Registration:
             if not email or not password:
                 return {
                     "statusCode": 400,
-                    "body": json.dumps({"error": "Email and password are required"})
+                    "body": json.dumps({"error": "Email and password required"})
                 }
 
-            # 1️⃣ Register in Cognito
-            self.cognito.sign_up(
-                ClientId=self.CLIENT_ID,
-                Username=email,
-                Password=password,
-                UserAttributes=[
-                    {"Name": "email", "Value": email}
-                ]
-            )
+            # Check if user already exists
+            existing = self.users_table.get_item(Key={"email": email})
+            if "Item" in existing:
+                return {
+                    "statusCode": 409,
+                    "body": json.dumps({"error": "User already exists"})
+                }
 
-            # 2️⃣ Save user details in DynamoDB (with email as PK)
+            # Generate salt & hash password
+            salt = secrets.token_hex(16)
+            password_hash = self.hash_password(password, salt)
+
+            # Store user in DynamoDB
             self.users_table.put_item(
                 Item={
                     "email": email,
+                    "user_id": str(uuid.uuid4()),
+                    "salt": salt,
+                    "password_hash": password_hash,
+                    "city": body.get("city"),
+                    "class_code": body.get("class_code"),
+                    "college_name": body.get("college_name"),
+                    "date": datetime.utcnow().date().isoformat(),  # auto-generate date
+                    "department": body.get("department"),
+                    "name": body.get("name"),
+                    "phone": body.get("phone"),
+                    "role": body.get("role"),
                     "auth_provider": "email",
                     "created_at": datetime.utcnow().isoformat()
-                },
-                ConditionExpression="attribute_not_exists(email)"  # prevent overwriting existing users
+                }
             )
 
             return {
-                "statusCode": 200,
-                "body": json.dumps({"message": "Signup successful. Confirm your email."})
+                "statusCode": 201,
+                "body": json.dumps({"message": "Signup successful"})
             }
 
         except ClientError as e:
@@ -74,38 +133,78 @@ class Registration:
                 "body": json.dumps({"error": str(e)})
             }
 
-    def login_handler(self, event, context):
+        # ---------- Login ----------
+    def login_handler(self, event, context={}):
         try:
             body = json.loads(event["body"])
             email = body.get("email")
             password = body.get("password")
 
-            # 1️⃣ Authenticate with Cognito
-            response = self.cognito.initiate_auth(
-                ClientId=self.CLIENT_ID,
-                AuthFlow="USER_PASSWORD_AUTH",
-                AuthParameters={
-                    "USERNAME": email,
-                    "PASSWORD": password
+            if not email or not password:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Email and password required"})
                 }
-            )
 
-            tokens = response["AuthenticationResult"]
+            # Fetch user from DynamoDB
+            response = self.users_table.get_item(Key={"email": email})
+            user = response.get("Item")
 
-            # 2️⃣ Update last login in DynamoDB
+            if not user:
+                return {
+                    "statusCode": 401,
+                    "body": json.dumps({"error": "Invalid credentials"})
+                }
+
+            # Validate password
+            hashed_input = self.hash_password(password, user["salt"])
+            if hashed_input != user["password_hash"]:
+                return {
+                    "statusCode": 401,
+                    "body": json.dumps({"error": "Invalid credentials"})
+                }
+
+            # Generate ID token (24 hrs)
+            payload = {
+                "email": user["email"],
+                "role": user["role"],
+                "name": user['name'],
+                "college" : user["college_name"],
+                "class" : user["class_code"],
+                "exp": datetime.utcnow() + timedelta(hours=24)
+            }
+            id_token = jwt.encode(payload, self.JWT_SECRET, algorithm=self.JWT_ALGO)
+
+            # Generate Refresh token (7 days, rotated every login)
+            refresh_payload = {
+                "email": user["email"],
+                "role": user["role"],
+                "name": user['name'],
+                "college" : user["college_name"],
+                "class" : user["class_code"],
+                "exp": datetime.utcnow() + timedelta(days=7),
+                "session_id": str(uuid.uuid4())  # ensures uniqueness each login
+            }
+            refresh_token = jwt.encode(refresh_payload, self.JWT_SECRET, algorithm=self.JWT_ALGO)
+            user_info = self.decode_token(id_token)
+
+            # Update last login + store refresh session
             self.users_table.update_item(
                 Key={"email": email},
-                UpdateExpression="SET last_login = :t",
-                ExpressionAttributeValues={":t": datetime.utcnow().isoformat()}
+                UpdateExpression="SET last_login = :t, last_refresh_token = :r",
+                ExpressionAttributeValues={
+                    ":t": datetime.utcnow().isoformat(),
+                    ":r": refresh_token
+                }
             )
 
             return {
                 "statusCode": 200,
                 "body": json.dumps({
                     "message": "Login successful",
-                    "id_token": tokens["IdToken"],
-                    "access_token": tokens["AccessToken"],
-                    "refresh_token": tokens["RefreshToken"]
+                    "id_token": id_token,
+                    "refresh_token": refresh_token,
+                    "user":user_info
                 })
             }
 
@@ -114,3 +213,31 @@ class Registration:
                 "statusCode": 400,
                 "body": json.dumps({"error": str(e)})
             }
+
+
+    def get_all_users_handler(self, event, context):
+        """Admin-only API"""
+        auth_result = self.verify_jwt(event)
+        if "error" in auth_result:
+            return {"statusCode": 401, "body": json.dumps({"error": auth_result["error"]})}
+
+        claims = auth_result["claims"]
+        if not self.check_access(claims, ["admin"]):
+            return {"statusCode": 403, "body": json.dumps({"error": "Admins only"})}
+
+        response = self.users_table.scan()
+        return {"statusCode": 200, "body": json.dumps(response["Items"])}
+
+    def get_my_profile_handler(self, event, context):
+        """Student-only API"""
+        auth_result = self.verify_jwt(event)
+        if "error" in auth_result:
+            return {"statusCode": 401, "body": json.dumps({"error": auth_result["error"]})}
+
+        claims = auth_result["claims"]
+        if not self.check_access(claims, ["student"]):
+            return {"statusCode": 403, "body": json.dumps({"error": "Students only"})}
+
+        email = claims["email"]
+        response = self.users_table.get_item(Key={"email": email})
+        return {"statusCode": 200, "body": json.dumps(response.get("Item", {}))}

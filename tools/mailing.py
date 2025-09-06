@@ -6,20 +6,20 @@ import re
 import boto3
 from dateutil import parser
 from datetime import datetime
-
+from dotenv import load_dotenv
+import os
+load_dotenv()
 # Load Gmail credentials from environment variables
 GMAIL_USER = "craftingbrainofficial@gmail.com"
 GMAIL_PASS ="ehts dcvb lyme kabo" 
 
 class Email:
     def __init__(self):
-        with open('assignments/Credentials.json') as f:
-            aws_creds = json.load(f)
 
         self.s3 = boto3.client(
             "s3",
-            aws_access_key_id=aws_creds["access_id"],
-            aws_secret_access_key=aws_creds["secret_key"],
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             region_name="us-east-1"
         )
         self.BUCKET = "generated-assignments"

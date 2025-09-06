@@ -6,6 +6,8 @@ from datetime import datetime
 from uuid import uuid4
 from io import BytesIO
 import base64
+from dotenv import load_dotenv
+load_dotenv()
 
 class UploadAssn:
     def upload(self,event, context=None):
@@ -51,18 +53,13 @@ class UploadAssn:
 
     def upload_pdf_to_s3(self,file_buffer, filename, metadata):
         # Choose S3 credentials source
-        if os.environ.get("USE_LAMBDA_CREDS", "true").lower() == "true":
-            s3 = boto3.client("s3")
-        else:
-            with open('Credentials.json') as f:
-                aws_creds = json.load(f)
-
-            s3 = boto3.client(
-                "s3",
-                aws_access_key_id=aws_creds["access_id"],
-                aws_secret_access_key=aws_creds["secret_key"],
-                region_name="us-east-1"
-            )
+        
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name="us-east-1"
+        )
 
         BUCKET = "submitted-assignments"
 
